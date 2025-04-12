@@ -4,6 +4,8 @@ from qiskit_aer import Aer
 import math
 import numpy as np
 
+from qhash import quantum_hash
+
 TOTAL_QUBITS = 20
 COIN_QUBITS = list(range(4))
 POSITION_QUBITS = list(range(4, 20))
@@ -70,3 +72,24 @@ def quantum_hash_with_expectations(input_data):
 
     # Step 5: Return 256-bit (32-byte) hash
     return bytes(hash_bytes[:32])
+
+
+
+
+# Simple command-line interface
+if __name__ == "__main__":
+    try:
+        print("===== Quantum Hash Generator =====")
+        print("Enter text or binary data to hash (binary must contain only 0s and 1s):")
+
+        input_data = input("> ")
+        print("\nProcessing input...")
+
+        try:
+            hash_result = quantum_hash(input_data)
+            print(f"\nQuantum Hash Result: {hash_result}")
+        except Exception as e:
+            print(f"\nError generating hash: {e}")
+
+    except Exception as e:
+        print(f"Program error: {e}")
