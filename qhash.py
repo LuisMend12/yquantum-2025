@@ -63,7 +63,8 @@ def qhash(x: bytes) -> bytes:
         # extract a nibble (4 bits) from the hash
         nibble = (x[i // 2] >> (4 * (1 - (i % 2)))) & 0x0F
         # scale it to use as a rotation angle parameter
-        value = nibble * math.pi / 8
+        #value = # Exponential or other non-linear mapping
+        value = math.exp(nibble / 15) - 1  # Range [0,e-1]  #changing angle scaling
         param_values[params[i]] = value
 
         # in_hash is assumed to be the input x.
