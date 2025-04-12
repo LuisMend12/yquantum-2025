@@ -66,6 +66,14 @@ def qhash(x: bytes) -> bytes:
         value = nibble * math.pi / 8
         param_values[params[i]] = value
 
+        # in_hash is assumed to be the input x.
+
+    # A nibble = 4 bits. So every byte gives two nibbles.
+
+    # Each nibble (0–15) is scaled to a rotation angle between 0 and 15 * π/8 ≈ 5.89 radians.
+
+    # There is a small typo: in_hash should be x (the argument to the function).
+
     # bind the parameters to the circuit.
     bound_qc = qc.assign_parameters(param_values)
 
