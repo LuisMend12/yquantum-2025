@@ -1,118 +1,116 @@
-import math
 from qiskit import QuantumCircuit
-from qiskit.circuit import Parameter
-from qiskit.quantum_info import Statevector
-from qiskit.quantum_info.operators import Pauli
+from qiskit_aer import AerSimulator
+import hashlib
 
-TOTAL_BITS = 16
-FRACTION_BITS = 15
-# This sets up how many bits are used for fixed-point conversion later.  1 bit for sign, 15 bits for fraction.
+TOTAL_QUBITS = 20
+COIN_QUBITS = list(range(4))  # 4 qubits for coin toss
+POSITION_QUBITS = list(range(4, 16))  # 12 qubits for position
+ANCILLA_QUBITS = list(range(16, 20))  # 4 qubits for ancillas
 
+def initialize_circuit():
+    """Initializes a quantum circuit with the required number of qubits."""
+    qc = QuantumCircuit(TOTAL_QUBITS, TOTAL_QUBITS)
+    return qc
 
+def apply_coin_operator(qc, bit_chunk):
+    """Applies quantum gates to the coin qubits based on the input chunk."""
+    for i, bit in enumerate(bit_chunk):
+        idx = i % len(COIN_QUBITS)
+        if bit == '1':
+            qc.h(COIN_QUBITS[idx])  # Hadamard gate
+        elif bit == '0':
+            qc.rx(1.57, COIN_QUBITS[idx])  # Rotation gate for bit '0'
+        else:
+            # For any unexpected characters, apply identity gate
+            qc.id(COIN_QUBITS[idx])
 
-# convert a float expectation to fixed-point
-def toFixed(x: float) -> int:
-    fraction_mult = 1 << FRACTION_BITS
-    return int(x * fraction_mult + (0.5 if x >= 0 else -0.5))
+def apply_position_shift_operator(qc):
+    """Applies controlled operations to shift the position qubits."""
+    # Entangle coin qubits with position qubits more efficiently
+    for i, c in enumerate(COIN_QUBITS):
+        # Each coin qubit controls a subset of position qubits
+        target_qubits = POSITION_QUBITS[i::4]
+        for p in target_qubits:
+            qc.cx(c, p)
+    
+    # Apply controlled rotations to create diffusion
+    for i in range(len(POSITION_QUBITS) - 2):
+        qc.ccx(POSITION_QUBITS[i], POSITION_QUBITS[i + 1], POSITION_QUBITS[i + 2])
+    
+    # Add some phase kicks to increase complexity
+    for i, qubit in enumerate(POSITION_QUBITS):
+        if i % 3 == 0:
+            qc.t(qubit)
+        elif i % 3 == 1:
+            qc.s(qubit)
 
-# This helper funciton converts a float between -1 and 1 to a 16-bit signed fiexed-point integer. This is 
-# used later to encode qunatum measurement results int to a form that can be hashe dor stored.
+def run_quantum_hash(input_string, chunk_size=8, shots=1024):
+    """Executes the quantum hash function and returns the measured output."""
+    # Ensure input is binary
+    if not all(bit in '01' for bit in input_string):
+        raise ValueError("Input must contain only '0' and '1' characters")
+    
+    qc = initialize_circuit()
+    
+    # Process input in chunks
+    chunks = [input_string[i:i + chunk_size] for i in range(0, len(input_string), chunk_size)]
+    
+    # Apply operations for each chunk of the input string
+    for chunk in chunks:
+        apply_coin_operator(qc, chunk)
+        apply_position_shift_operator(qc)
+    
+    # Add a final mixing layer
+    for i in range(TOTAL_QUBITS):
+        qc.h(i)
+    
+    # Measure all qubits
+    qc.measure(range(TOTAL_QUBITS), range(TOTAL_QUBITS))
+    
+    # Run the circuit on the simulator using the updated API
+    simulator = AerSimulator()
+    result = simulator.run(qc, shots=shots).result()
+    counts = result.get_counts()
+    
+    # Get the most frequent outcome
+    measured = max(counts.items(), key=lambda x: x[1])[0]
+    
+    return measured
 
+def reduce_to_64bit(measured_output):
+    """Reduces the measured quantum output to a 64-bit hash using SHA-256."""
+    digest = hashlib.sha256(measured_output.encode()).hexdigest()
+    return digest[:16]  # Taking the first 16 characters (64 bits)
 
-NUM_QUBITS = 16
-NUM_LAYERS = 2
+def quantum_hash(input_data, output_size=16):
+    """Complete quantum hash function that takes any string input and returns a hash."""
+    # Convert input to binary representation if it's not already
+    if not all(bit in '01' for bit in input_data):
+        binary_input = ''.join(format(ord(char), '08b') for char in input_data)
+    else:
+        binary_input = input_data
+    
+    # Ensure we have enough data to process (pad if necessary)
+    if len(binary_input) < 64:
+        binary_input = binary_input.ljust(64, '0')
+    
+    # Run the quantum circuit
+    quantum_raw = run_quantum_hash(binary_input)
+    
+    # Process the output to get the final hash
+    final_hash = reduce_to_64bit(quantum_raw)
+    return final_hash[:output_size]  # Allow flexible hash size
 
-# build the parameterized quantum circuit.
-qc = QuantumCircuit(NUM_QUBITS)
-params = []
-
-
-# this defines the quantum circuit with 16 qubits and 2 layers of quantum gates. 
-# parms will hodl all symbolic parameters for gate angles
-for l in range(NUM_LAYERS):
-    # add parameterized RY rotation gates
-    for i in range(NUM_QUBITS):
-        theta = Parameter(f"theta_ry_{l}_{i}")
-        params.append(theta)
-        qc.ry(theta, i)
-    # add parameterized RX rotation gates
-    for i in range(NUM_QUBITS):
-        theta = Parameter(f"theta_rz_{l}_{i}")
-        params.append(theta)
-        qc.rz(theta, i)
-    # add CNOT entangling gates
-    for i in range(NUM_QUBITS - 1):
-        qc.cx(i, i + 1)
-
-# Each layer adds a rotation around Y (RY) and rotation around Z (RZ) for each qubit, parameterized by a variable angle (i.e. not hardcoded).
-
-# After each set of RY and RZ gates, CNOT gates entangle each qubit with its neighbor.
-
-# You’re effectively building a variational (parameterized) quantum circuit.
-
-num_params = len(params)
-
-# Quantum simulation portion of the qhash
-# x - 256-bit byte array
-# returns the hash value as a 256-bit byte array
-def qhash(x: bytes) -> bytes:
-    # This function takes a 256-bit input (32 bytes) and returns a quantum-derived hash.
-    # create a dictionary mapping each parameter to its value.
-    param_values = {}
-    for i in range(num_params):
-        # extract a nibble (4 bits) from the hash
-        nibble = (x[i // 2] >> (4 * (1 - (i % 2)))) & 0x0F
-        # scale it to use as a rotation angle parameter
-        #value = # Exponential or other non-linear mapping
-        value = math.exp(nibble / 15) - 1  # Range [0,e-1]  #changing angle scaling
-        param_values[params[i]] = value
-
-        # in_hash is assumed to be the input x.
-
-    # A nibble = 4 bits. So every byte gives two nibbles.
-
-    # Each nibble (0–15) is scaled to a rotation angle between 0 and 15 * π/8 ≈ 5.89 radians.
-
-    # There is a small typo: in_hash should be x (the argument to the function).
-
-    # bind the parameters to the circuit.
-    bound_qc = qc.assign_parameters(param_values)
-
-    # prepare the state vector from the bound circuit
-    sv = Statevector.from_instruction(bound_qc)
-    # calculate the qubit expectations on the Z axis
-    exps = [sv.expectation_value(Pauli("Z"), [i]).real for i in range(NUM_QUBITS)]
-    # convert the expectations to the fixed-point values
-    fixed_exps = [toFixed(exp) for exp in exps]
-
-    # pack the fixed-point results into a byte list.
-    data = []
-    for fixed in fixed_exps:
-        for i in range(TOTAL_BITS // 8):
-            data.append((fixed >> (8 * i)) & 0xFF)
-
-    return bytes(data)
-
-
-# #This lacks the full blockchain-specific classical hashign, and restricts the input to a fixed size (256-bits).
-
-# #it is not eligible for a challenge solution in its current form. A proper Qubitcoin implementation would need:
-
-# Post-simulation classical hashing for additional security,
-
-# The ability to handle variable input sizes, and
-
-# A more robust approach to ensuring that the hash result can be used securely in the blockchain’s Proof of Work or Proof of Stake systems.
-
+# Example usage
 if __name__ == "__main__":
-    # Example 256-bit (32-byte) input
-    test_input = bytes([i % 256 for i in range(32)])  # Simple pattern for testing
+    # Test with binary input
+    binary_data = '1010101111001101110010110011001111000011110011001100110011001111001100111100'
+    hash_result = quantum_hash(binary_data)
+    print(f"Input: {binary_data[:20]}... (length: {len(binary_data)})")
+    print(f"Quantum Hash: {hash_result}")
     
-    print("Running quantum hash...")
-    hash_result = qhash(test_input)
-    
-    print(f"Input: {test_input.hex()}")
-    print(f"Hash result: {hash_result.hex()}")
-    print(f"Hash length: {len(hash_result)} bytes")
-
-    # outputs the result of the hash funcition, this means that it print out the length and hashed value
+    # Test with text input
+    text_data = "Hello, quantum world!"
+    hash_result = quantum_hash(text_data)
+    print(f"Input: '{text_data}'")
+    print(f"Quantum Hash: {hash_result}")
