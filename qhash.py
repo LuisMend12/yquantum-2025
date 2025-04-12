@@ -1,116 +1,95 @@
 from qiskit import QuantumCircuit
-from qiskit_aer import AerSimulator
+from qiskit_aer import Aer
 import hashlib
+import numpy as np
 
-TOTAL_QUBITS = 20
-COIN_QUBITS = list(range(4))  # 4 qubits for coin toss
-POSITION_QUBITS = list(range(4, 16))  # 12 qubits for position
-ANCILLA_QUBITS = list(range(16, 20))  # 4 qubits for ancillas
+# Define qubit allocations - reduced for simplicity
+TOTAL_QUBITS = 8
+COIN_QUBITS = list(range(2))  # 2 qubits for coin toss
+POSITION_QUBITS = list(range(2, 8))  # 6 qubits for position
 
-def initialize_circuit():
-    """Initializes a quantum circuit with the required number of qubits."""
-    qc = QuantumCircuit(TOTAL_QUBITS, TOTAL_QUBITS)
-    return qc
-
-def apply_coin_operator(qc, bit_chunk):
-    """Applies quantum gates to the coin qubits based on the input chunk."""
-    for i, bit in enumerate(bit_chunk):
-        idx = i % len(COIN_QUBITS)
-        if bit == '1':
-            qc.h(COIN_QUBITS[idx])  # Hadamard gate
-        elif bit == '0':
-            qc.rx(1.57, COIN_QUBITS[idx])  # Rotation gate for bit '0'
-        else:
-            # For any unexpected characters, apply identity gate
-            qc.id(COIN_QUBITS[idx])
-
-def apply_position_shift_operator(qc):
-    """Applies controlled operations to shift the position qubits."""
-    # Entangle coin qubits with position qubits more efficiently
-    for i, c in enumerate(COIN_QUBITS):
-        # Each coin qubit controls a subset of position qubits
-        target_qubits = POSITION_QUBITS[i::4]
-        for p in target_qubits:
-            qc.cx(c, p)
+def quantum_hash(input_data):
+    """
+    Quantum hash function that automatically converts text to binary.
+    Works with both text strings and binary strings as input.
     
-    # Apply controlled rotations to create diffusion
-    for i in range(len(POSITION_QUBITS) - 2):
-        qc.ccx(POSITION_QUBITS[i], POSITION_QUBITS[i + 1], POSITION_QUBITS[i + 2])
-    
-    # Add some phase kicks to increase complexity
-    for i, qubit in enumerate(POSITION_QUBITS):
-        if i % 3 == 0:
-            qc.t(qubit)
-        elif i % 3 == 1:
-            qc.s(qubit)
-
-def run_quantum_hash(input_string, chunk_size=8, shots=1024):
-    """Executes the quantum hash function and returns the measured output."""
-    # Ensure input is binary
-    if not all(bit in '01' for bit in input_string):
-        raise ValueError("Input must contain only '0' and '1' characters")
-    
-    qc = initialize_circuit()
-    
-    # Process input in chunks
-    chunks = [input_string[i:i + chunk_size] for i in range(0, len(input_string), chunk_size)]
-    
-    # Apply operations for each chunk of the input string
-    for chunk in chunks:
-        apply_coin_operator(qc, chunk)
-        apply_position_shift_operator(qc)
-    
-    # Add a final mixing layer
-    for i in range(TOTAL_QUBITS):
-        qc.h(i)
-    
-    # Measure all qubits
-    qc.measure(range(TOTAL_QUBITS), range(TOTAL_QUBITS))
-    
-    # Run the circuit on the simulator using the updated API
-    simulator = AerSimulator()
-    result = simulator.run(qc, shots=shots).result()
-    counts = result.get_counts()
-    
-    # Get the most frequent outcome
-    measured = max(counts.items(), key=lambda x: x[1])[0]
-    
-    return measured
-
-def reduce_to_64bit(measured_output):
-    """Reduces the measured quantum output to a 64-bit hash using SHA-256."""
-    digest = hashlib.sha256(measured_output.encode()).hexdigest()
-    return digest[:16]  # Taking the first 16 characters (64 bits)
-
-def quantum_hash(input_data, output_size=16):
-    """Complete quantum hash function that takes any string input and returns a hash."""
-    # Convert input to binary representation if it's not already
+    Args:
+        input_data (str): Either text or binary string to hash
+        
+    Returns:
+        str: 16-character (64-bit) hash value
+    """
+    # Step 1: Convert to binary if input is text
     if not all(bit in '01' for bit in input_data):
+        print(f"Converting text to binary...")
         binary_input = ''.join(format(ord(char), '08b') for char in input_data)
+        print(f"Binary representation: {binary_input}")
     else:
         binary_input = input_data
     
-    # Ensure we have enough data to process (pad if necessary)
-    if len(binary_input) < 64:
-        binary_input = binary_input.ljust(64, '0')
+    # Step 2: Ensure we have enough data
+    if len(binary_input) < 8:
+        binary_input = binary_input.ljust(8, '0')
     
-    # Run the quantum circuit
-    quantum_raw = run_quantum_hash(binary_input)
+    print(f"Processing {len(binary_input)} bits of binary data...")
     
-    # Process the output to get the final hash
-    final_hash = reduce_to_64bit(quantum_raw)
-    return final_hash[:output_size]  # Allow flexible hash size
+    # Step 3: Initialize quantum circuit
+    qc = QuantumCircuit(TOTAL_QUBITS)
+    
+    # Step 4: Process input in chunks
+    chunks = [binary_input[i:i+2] for i in range(0, min(len(binary_input), 16), 2)]
+    
+    # Step 5: Apply quantum operations
+    for chunk in chunks:
+        # Apply coin operator
+        for i, bit in enumerate(chunk):
+            idx = i % len(COIN_QUBITS)
+            if bit == '1':
+                qc.h(COIN_QUBITS[idx])  # Hadamard gate
+            elif bit == '0':
+                qc.rx(1.57, COIN_QUBITS[idx])  # Rotation gate
+        
+        # Apply position shift operator
+        for c in COIN_QUBITS:
+            for p in POSITION_QUBITS:
+                qc.cx(c, p)
+    
+    # Step 6: Add final mixing layer
+    for i in range(TOTAL_QUBITS):
+        qc.h(i)
+    
+    # Step 7: Get statevector from the quantum circuit
+    print("Calculating quantum state...")
+    backend = Aer.get_backend('statevector_simulator')
+    job = backend.run(qc)
+    result = job.result()
+    statevector = result.get_statevector()
+    
+    # Step 8: Create deterministic output from quantum state
+    probabilities = np.abs(statevector) ** 2
+    top_indices = np.argsort(probabilities)[-8:]
+    output_string = ''.join([format(idx, '08b') for idx in top_indices])
+    
+    # Step 9: Generate final hash using SHA-256
+    print("Generating final hash...")
+    final_hash = hashlib.sha256(output_string.encode()).hexdigest()[:16]
+    
+    return final_hash
 
-# Example usage
+# Simple command-line interface
 if __name__ == "__main__":
-    # Test with binary input
-    binary_data = '1010101111001101110010110011001111000011110011001100110011001111001100111100'
-    hash_result = quantum_hash(binary_data)
-    print(f"Input: {binary_data[:20]}... (length: {len(binary_data)})")
-    print(f"Quantum Hash: {hash_result}")
+    try:
+        print("===== Quantum Hash Generator =====")
+        print("Enter text or binary data to hash (binary must contain only 0s and 1s):")
+        
+        input_data = input("> ")
+        print("\nProcessing input...")
+        
+        try:
+            hash_result = quantum_hash(input_data)
+            print(f"\nQuantum Hash Result: {hash_result}")
+        except Exception as e:
+            print(f"\nError generating hash: {e}")
     
-    # Test with text input
-    text_data = "Hello, quantum world!"
-    hash_result = quantum_hash(text_data)
-    print(f"Input: '{text_data}'")
-    print(f"Quantum Hash: {hash_result}")
+    except Exception as e:
+        print(f"Program error: {e}")
