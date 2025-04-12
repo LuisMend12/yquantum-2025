@@ -102,3 +102,16 @@ def qhash(x: bytes) -> bytes:
 # The ability to handle variable input sizes, and
 
 # A more robust approach to ensuring that the hash result can be used securely in the blockchain’s Proof of Work or Proof of Stake systems.
+
+if __name__ == "__main__":
+    # Example 256-bit (32-byte) input
+    test_input = bytes([i % 256 for i in range(32)])  # Simple pattern for testing
+    
+    print("Running quantum hash...")
+    hash_result = qhash(test_input)
+    
+    print(f"Input: {test_input.hex()}")
+    print(f"Hash result: {hash_result.hex()}")
+    print(f"Hash length: {len(hash_result)} bytes")
+
+    # outputs the result of the hash funcition, this means that it print out the length and hashed value
