@@ -2,6 +2,7 @@ from qiskit import QuantumCircuit
 from qiskit.quantum_info import Statevector, Pauli
 from qiskit_aer import Aer
 import math
+import numpy as np
 
 TOTAL_QUBITS = 20
 COIN_QUBITS = list(range(4))
@@ -11,48 +12,34 @@ def expectation_to_byte(exp_val):
     """Convert expectation value [-1, 1] to byte [0, 255]."""
     return int((exp_val + 1) / 2 * 255)
 
-def adjust_to_power_of_two_bytes(byte_array, min_power=5):
-    """
-    Adjusts a byte array to have length 2^N (N >= min_power).
-    Pads with zeros or trims as necessary.
-    """
-    length = len(byte_array)
-    target_power = max(min_power, math.ceil(math.log2(length)))
-    target_length = 2 ** target_power
-
-    if length < target_length:
-        padded = byte_array + bytes(target_length - length)
-    else:
-        padded = byte_array[:target_length]
-
-    return padded
-
-def quantum_hash(input_bytes):
+def quantum_hash(input_data):
     """Quantum hash function using expectations from quantum statevector."""
-    if not isinstance(input_bytes, (bytes, bytearray)):
-        raise TypeError("Input must be a byte array.")
+    # Ensure input_data is in bytes or bytearray format
+    if not isinstance(input_data, (bytes, bytearray)):
+        raise ValueError("Input must be a byte array (bytes or bytearray)")
 
-    # Ensure input length is 2^N (N ≥ 5)
-    input_bytes = adjust_to_power_of_two_bytes(input_bytes)
+    # Convert byte array to binary string
+    binary_input = ''.join(format(byte, '08b') for byte in input_data)
+
+    # Pad binary input if needed (ensure it's multiple of 2)
+    if len(binary_input) % 2 != 0:
+        binary_input += '0'
 
     # Build the quantum circuit
     qc = QuantumCircuit(TOTAL_QUBITS)
+    chunks = [binary_input[i:i+2] for i in range(0, len(binary_input), 2)]
 
-    for byte in input_bytes:
-        bits = format(byte, '08b')
-        chunks = [bits[i:i+2] for i in range(0, 8, 2)]
+    for chunk in chunks:
+        for j, bit in enumerate(chunk):
+            idx = j % len(COIN_QUBITS)
+            if bit == '1':
+                qc.h(COIN_QUBITS[idx])
+            else:
+                qc.rx(math.pi / 2, COIN_QUBITS[idx])
 
-        for chunk in chunks:
-            for j, bit in enumerate(chunk):
-                idx = j % len(COIN_QUBITS)
-                if bit == '1':
-                    qc.h(COIN_QUBITS[idx])
-                else:
-                    qc.rx(math.pi / 2, COIN_QUBITS[idx])
-
-            for c in COIN_QUBITS:
-                for p in POSITION_QUBITS:
-                    qc.cx(c, p)
+        for c in COIN_QUBITS:
+            for p in POSITION_QUBITS:
+                qc.cx(c, p)
 
     # Global mixing
     for i in range(TOTAL_QUBITS):
@@ -67,7 +54,7 @@ def quantum_hash(input_bytes):
     result = backend.run(qc).result()
     state = result.get_statevector()
 
-    # Collect expectation values
+    # Collect expectation values for Z and X operators
     hash_bytes = bytearray()
     for i in range(TOTAL_QUBITS):
         z_op = Pauli('I' * i + 'Z' + 'I' * (TOTAL_QUBITS - i - 1))
@@ -80,15 +67,14 @@ def quantum_hash(input_bytes):
 
     return bytes(hash_bytes[:32])  # Fixed 256-bit hash
 
-
 if __name__ == "__main__":
     print("===== Quantum Hash Generator (Expectation-based) =====")
+    
+    # Example input (array of bytes)
+    input_data = b'\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1A\x1B\x1C\x1D\x1E\x1F\x20'
 
     try:
-        hex_input = input("Enter hex-encoded byte string (e.g., 'a1b2c3'): \n> ")
-        input_bytes = bytes.fromhex(hex_input)
-        result = quantum_hash(input_bytes)
-
+        result = quantum_hash(input_data)
         print(f"\nQuantum Hash (hex): {result.hex()}")
         print(f"Raw Bytes: {result}")
     except Exception as e:
