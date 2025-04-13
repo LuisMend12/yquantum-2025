@@ -1,6 +1,5 @@
 import unittest
 from main import qhash_quantum_walk  # Replace with actual module name if needed
-import math
 
 class TestQuantumHashFunction(unittest.TestCase):
     
