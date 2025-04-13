@@ -2,7 +2,7 @@ import numpy as np
 from qiskit import QuantumCircuit, QuantumRegister
 from qiskit.quantum_info import Statevector, Pauli
 
-def quantum_hash_iterative_v4(input_bytes):
+def quantum_hash_iterative_v5(input_bytes):
     """
     A purely quantum hash function processing input in 20-bit chunks using Statevector.
     Input: an array of 2^N bytes (N >= 5).
@@ -15,7 +15,6 @@ def quantum_hash_iterative_v4(input_bytes):
 
     n_qubits = 20
     qr = QuantumRegister(n_qubits, 'q')
-    qc = QuantumCircuit(qr)
 
     current_state = Statevector.from_int(0, dims=2**n_qubits) # Start with |0...0>
 
@@ -72,11 +71,11 @@ def quantum_hash_iterative_v4(input_bytes):
 
 if __name__ == '__main__':
     input_data_n5 = b'This is a test input of 32 bytes for N=5'
-    output_hash_n5 = quantum_hash_iterative_v4(input_data_n5)
+    output_hash_n5 = quantum_hash_iterative_v5(input_data_n5)
     print(f"Input (N=5, {len(input_data_n5)} bytes): {input_data_n5}")
     print(f"Output (N=5, {len(output_hash_n5)} bytes): {output_hash_n5.hex()}")
 
     input_data_n6 = b'This is a longer test input of 64 bytes for N=6' * 2
-    output_hash_n6 = quantum_hash_iterative_v4(input_data_n6)
+    output_hash_n6 = quantum_hash_iterative_v5(input_data_n6)
     print(f"Input (N=6, {len(input_data_n6)} bytes): {input_data_n6}")
     print(f"Output (N=6, {len(output_hash_n6)} bytes): {output_hash_n6.hex()}")
