@@ -65,7 +65,11 @@ def quantum_hash(input_data):
         x_val = state.expectation_value(x_op).real
         hash_bytes.append(expectation_to_byte(x_val))
 
-    return bytes(hash_bytes[:32])  # Fixed 256-bit hash
+    return bytes(hash_bytes[:len(input_data)])  # Output matches input size
+  # Output fixed at 256 bits (32 bytes)
+
+  # Output matches input size
+  # Fixed 256-bit hash
 
 
 if __name__ == "__main__":
