@@ -1,4 +1,4 @@
-# YQuantum 2025 - Super Hash Function Challenge
+# YQuantum 2025 - First Place Super Hash Function Challenge
 
 > _"Quantum computations are the next frontier in securing blockchain with advanced proof-of-work." – Anonymous, probably_
 
