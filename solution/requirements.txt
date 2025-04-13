@@ -1,0 +1,25 @@
+# requirements.txt
+
+# math library: This is a built-in Python library that provides mathematical functions such as trigonometric functions, logarithmic functions, and constants like pi and e. 
+# It's used for performing various mathematical operations and calculations.
+math
+
+# qiskit: This is an open-source quantum computing framework that provides tools for working with quantum circuits, simulating quantum systems, and interfacing with quantum hardware. 
+# It's used for building and running quantum algorithms, including quantum state manipulation, quantum gates, and circuit optimization.
+qiskit==0.39.0
+
+# qiskit.quantum_info: This module from Qiskit provides tools to work with quantum information, including statevectors, operators, and various quantum objects.
+# It is used to represent quantum states, perform quantum measurements, and analyze quantum systems.
+qiskit-quantum-info==0.39.0
+
+# Pauli: Part of qiskit.quantum_info, the Pauli module provides tools to work with Pauli matrices (a set of matrices representing basic quantum operations).
+# Pauli matrices are used in many quantum algorithms, including quantum error correction, entanglement, and quantum gates.
+qiskit-quantum-info==0.39.0
+
+# time: This is a built-in Python library used to work with time-related functions. It provides tools for measuring time, pausing execution, and getting the current system time.
+# It's useful for performance timing, delays, and handling time-based operations.
+time
+
+# unittest: This is a built-in Python library used for writing and running tests. It provides a framework for organizing test cases, running them, and checking expected results.
+# It's commonly used to validate code and ensure correctness in the development process.
+unittest
