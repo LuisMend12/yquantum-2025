@@ -82,28 +82,28 @@ def qhash_quantum_walk(input_data: bytearray) -> bytes:
     # Return the final hash, truncated to match the input size
     return bytes(hash_bytes[:original_size])
 
-# === Command-Line Interface (CLI) Test ===
-if __name__ == "__main__":
-    test_inputs = [
-        bytearray([1, 2, 3, 4, 5, 8]),  # Example input 1
-        bytearray([1, 2, 3, 4, 5, 7]),  # Example input 2 (with a small change to check avalanche effect)
-    ]
 
-    print("\n--- Testing qhash_quantum_walk ---")
-    for input_data in test_inputs:
-        try:
-            # Perform the quantum walk hash on the input data
-            result = qhash_quantum_walk(input_data)
-            print(f"\nProcessing input: {list(input_data)} (size: {len(input_data)} bytes)")
-            print(f"qhash Result (hex): {result.hex()} (size: {len(result)} bytes)")
+# if __name__ == "__main__":
+#     test_inputs = [
+#         bytearray([1, 2, 3, 4, 5, 8]),  # Example input 1
+#         bytearray([1, 2, 3, 4, 5, 7]),  # Example input 2 (with a small change to check avalanche effect)
+#     ]
 
-            # Basic avalanche effect test
-            modified = bytearray(input_data)  # Modify the input to test avalanche effect
-            modified[0] ^= 1  # Flip the first bit
-            result2 = qhash_quantum_walk(modified)  # Hash the modified input
-            if result != result2:  # If the hashes are different, avalanche effect is observed
-                print("Avalanche effect observed.")
-            else:
-                print("No avalanche effect detected.")
-        except Exception as e:
-            print(f"Error: {e}")
+#     print("\n--- Testing qhash_quantum_walk ---")
+#     for input_data in test_inputs:
+#         try:
+#             # Perform the quantum walk hash on the input data
+#             result = qhash_quantum_walk(input_data)
+#             print(f"\nProcessing input: {list(input_data)} (size: {len(input_data)} bytes)")
+#             print(f"qhash Result (hex): {result.hex()} (size: {len(result)} bytes)")
+
+#             # Basic avalanche effect test
+#             modified = bytearray(input_data)  # Modify the input to test avalanche effect
+#             modified[0] ^= 1  # Flip the first bit
+#             result2 = qhash_quantum_walk(modified)  # Hash the modified input
+#             if result != result2:  # If the hashes are different, avalanche effect is observed
+#                 print("Avalanche effect observed.")
+#             else:
+#                 print("No avalanche effect detected.")
+#         except Exception as e:
+#             print(f"Error: {e}")
