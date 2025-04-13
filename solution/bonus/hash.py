@@ -2,7 +2,6 @@ from qiskit import QuantumCircuit
 from qiskit.quantum_info import Statevector, Pauli
 from qiskit_aer import Aer
 import math
-import numpy as np
 
 TOTAL_QUBITS = 20
 COIN_QUBITS = list(range(4))

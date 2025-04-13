@@ -2,7 +2,7 @@
 
 import time
 import unittest
-from solution.bonus.hash import TOTAL_QUBITS, quantum_hash  # Replace with actual module name if needed
+from hash import TOTAL_QUBITS, quantum_hash  # Replace with actual module name if needed
 
 class TestQuantumHashFunction(unittest.TestCase):
     

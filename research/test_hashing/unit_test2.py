@@ -1,6 +1,6 @@
 import time
 import unittest
-from research.test_hashing.qhashcode_better_avalanche_and_speed import qhash_variable_output_v7, NUM_QUBITS  # Replace with actual module name if needed
+from qhashcode_better_avalanche_and_speed import qhash_variable_output_v7, NUM_QUBITS  # Replace with actual module name if needed
 
 class TestQuantumHashFunction(unittest.TestCase):
     
