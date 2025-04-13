@@ -4,7 +4,7 @@ from qiskit_aer import Aer
 import math
 import numpy as np
 
-from qhash import quantum_hash
+from prev_work.qhash import quantum_hash
 
 TOTAL_QUBITS = 20
 COIN_QUBITS = list(range(4))
