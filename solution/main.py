@@ -4,7 +4,7 @@ from qiskit.quantum_info import Statevector, Pauli
 
 
 NUM_POSITION_QUBITS = 4  # for 16 positions
-NUM_WALK_STEPS = 6
+NUM_WALK_STEPS = 64 #gotta check this
 TOTAL_QUBITS = NUM_POSITION_QUBITS + 1  # +1 coin qubit
 
 
@@ -32,7 +32,7 @@ def qhash_quantum_walk(input_data: bytearray) -> bytes:
     qc.x(pos_qubits[center])
 
     for step in range(NUM_WALK_STEPS):
-        byte_val = data[step % len(data)]
+        byte_val = sum([data[(step + i) % len(data)] for i in range(4)]) % 256
         theta = (byte_val % 256) * math.pi / 128  # in [0, 2π]
         qc.ry(theta, coin)
 
