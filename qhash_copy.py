@@ -14,9 +14,9 @@ def expectation_to_byte(exp_val):
 
 def quantum_hash(input_data):
     """Quantum hash function using expectations from quantum statevector."""
-    # Ensure input_data is in bytes or bytearray format
-    if not isinstance(input_data, (bytes, bytearray)):
-        raise ValueError("Input must be a byte array (bytes or bytearray)")
+    # Ensure input_data is in byte array format
+    if not isinstance(input_data, bytearray):
+        raise ValueError("Input must be a byte array")
 
     # Convert byte array to binary string
     binary_input = ''.join(format(byte, '08b') for byte in input_data)
@@ -67,11 +67,14 @@ def quantum_hash(input_data):
 
     return bytes(hash_bytes[:32])  # Fixed 256-bit hash
 
+
 if __name__ == "__main__":
     print("===== Quantum Hash Generator (Expectation-based) =====")
     
     # Example input (array of bytes)
-    input_data = b'\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1A\x1B\x1C\x1D\x1E\x1F\x20'
+    input_data = bytearray(b'\x00\x14\x3c\x8c\xa0\xb4\xc8\xdc\xf0') 
+
+
 
     try:
         result = quantum_hash(input_data)
