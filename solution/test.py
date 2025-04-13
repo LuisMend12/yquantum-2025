@@ -1,5 +1,6 @@
+import time
 import unittest
-from main import qhash_quantum_walk  # Replace with actual module name if needed
+from main import TOTAL_QUBITS, qhash_quantum_walk  # Replace with actual module name if needed
 
 class TestQuantumHashFunction(unittest.TestCase):
     
@@ -40,6 +41,49 @@ class TestQuantumHashFunction(unittest.TestCase):
             # Check that the hash for the same input is always the same
             self.assertEqual(hash1, hash2, f"Hash mismatch for input: {input_data}")
 
+    def test_entropy_preservation(self):
+        """Ensure the output has high byte diversity (entropy proxy)."""
+        input_data = bytearray(range(32))
+        output = qhash_quantum_walk(input_data)
+        unique_bytes = len(set(output))
+        self.assertGreaterEqual(unique_bytes, len(output) // 2, "Low entropy in output hash")
+
+    def test_preimage_resistance_proxy(self):
+        """Check that hashes are hard to reverse by brute-force within limited attempts."""
+        target_input = bytearray(range(16))
+        target_hash = qhash_quantum_walk(target_input)
+
+        for guess in (bytearray([i] * 16) for i in range(256)):
+            if guess == target_input:
+                continue
+            if qhash_quantum_walk(guess) == target_hash:
+                self.fail("Preimage found by brute-force")
+
+    def test_qubit_count_feasibility(self):
+        """Ensure total qubit usage does not exceed 20 and report how many were used."""
+        num_qubits_used = TOTAL_QUBITS  # coin + position qubits
+        print(f"\nQubits used: {num_qubits_used}")
+        self.assertLessEqual(num_qubits_used, 20, f"Too many qubits used: {num_qubits_used}")
+
+
+    import time
+
+    def test_execution_speed(self):
+        """Ensure that hash function executes within reasonable time."""
+        input_data = bytearray(range(32))
+        start = time.time()
+        qhash_quantum_walk(input_data)
+        duration = time.time() - start
+        self.assertLess(duration, 2.0, "Hash function took too long")
+
+
+    def test_no_classical_hashing(self):
+        """Ensure no classical hash libraries are imported."""
+        import inspect
+        src = inspect.getsource(qhash_quantum_walk)
+        self.assertNotIn("hashlib", src, "Classical hashing detected in quantum hash function")
+
+
     def test_avalanche_effect(self):
         """Test that small changes in input cause big changes in output (avalanche effect)."""
         inputs = [
@@ -68,9 +112,9 @@ class TestQuantumHashFunction(unittest.TestCase):
             if diff_count < 3:
                 self.fail(f"Avalanche effect FAILED for input {input_data} — only {diff_count} bytes differ")
             elif diff_count == 3:
-                print(f"⚠️  Weak avalanche effect for input {input_data} — exactly 3 bytes differ")
+                print(f"Weak avalanche effect for input {input_data} — exactly 3 bytes differ")
             else:
-                print(f"✅ Good avalanche effect for input {input_data} — {diff_count} bytes differ")
+                print(f"Good avalanche effect for input {input_data} — {diff_count} bytes differ")
 
     def test_collision_resistance(self):
         """Test that two different inputs produce different hashes (collision resistance)."""
