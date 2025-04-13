@@ -27,8 +27,9 @@ class TestQuantumHashFunction(unittest.TestCase):
         hash2 = qhash_quantum_walk(modified_data)
 
         # Compare how many bytes differ
-        diff_count = sum(b1 != b2 for b1, b2 in zip(hash1, hash2))
+        diff_count = sum([1 for a, b in zip(hash1, hash2) if a != b])  # Count differing bytes # diff_count = sum(b1 != b2 for b1, b2 in zip(hash1, hash2))
         self.assertGreater(diff_count, len(hash1) // 2, "Not enough bytes changed in avalanche test")
+
 
 if __name__ == '__main__':
     unittest.main()

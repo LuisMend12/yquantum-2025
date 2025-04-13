@@ -85,15 +85,6 @@ if __name__ == "__main__":
             print(f"\nProcessing input: {list(input_data)} (size: {len(input_data)} bytes)")
             print(f"qhash Result (hex): {result.hex()} (size: {len(result)} bytes)")
 
-            # Basic avalanche effect test
-            modified = bytearray(input_data)  # Modify the input to test avalanche effect
-            modified[0] ^= 1  # Flip the first bit
-            result2 = qhash_quantum_walk(modified)  # Hash the modified input
-            diff_count = sum([1 for a, b in zip(result, result2) if a != b])  # Count differing bytes
-
-            if diff_count > len(result) // 2:  # Ensure enough bytes changed
-                print("Avalanche effect observed.")
-            else:
-                print("No avalanche effect detected.")
+            
         except Exception as e:
             print(f"Error: {e}")
