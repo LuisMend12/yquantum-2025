@@ -4,8 +4,7 @@ from qiskit.circuit import Parameter
 from qiskit.quantum_info import Statevector
 from qiskit.quantum_info.operators import Pauli
 from qiskit_aer import Aer
-import struct
-import hashlib
+
 
 NUM_QUBITS = 16
 NUM_LAYERS = 8 # Increased number of layers again
