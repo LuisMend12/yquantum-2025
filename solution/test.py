@@ -1,3 +1,5 @@
+# Unit test for our Hashing function main.py
+
 import time
 import unittest
 from main import TOTAL_QUBITS, qhash_quantum_walk  # Replace with actual module name if needed
