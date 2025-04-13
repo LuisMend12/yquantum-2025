@@ -72,7 +72,7 @@ if __name__ == "__main__":
     print("===== Quantum Hash Generator (Expectation-based) =====")
     
     # Example input (array of bytes)
-    input_data = bytearray(b'\x00\x14\x3c\x8c\xa0\xb4\xc8\xdc\xf0') 
+    input_data = bytearray([i % 256 for i in range(32)]) 
 
 
 
