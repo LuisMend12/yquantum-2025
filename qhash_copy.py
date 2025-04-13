@@ -13,11 +13,15 @@ def expectation_to_byte(exp_val):
     return int((exp_val + 1) / 2 * 255)
 
 def quantum_hash(input_data):
-    """Quantum hash function using expectations from quantum statevector."""
+    """Quantum hash function using expectations from quantum statevector.
+    Returns a hash with output size matching the input size."""
     # Ensure input_data is in byte array format
     if not isinstance(input_data, bytearray):
         raise ValueError("Input must be a byte array")
-
+    
+    # Store the original input size to match later
+    input_size = len(input_data)
+    
     # Convert byte array to binary string
     binary_input = ''.join(format(byte, '08b') for byte in input_data)
 
@@ -64,25 +68,34 @@ def quantum_hash(input_data):
         x_op = Pauli('I' * i + 'X' + 'I' * (TOTAL_QUBITS - i - 1))
         x_val = state.expectation_value(x_op).real
         hash_bytes.append(expectation_to_byte(x_val))
-
-    return bytes(hash_bytes[:len(input_data)])  # Output matches input size
-  # Output fixed at 256 bits (32 bytes)
-
-  # Output matches input size
-  # Fixed 256-bit hash
-
+    
+    # Resize the hash to match the input size exactly
+    if len(hash_bytes) < input_size:
+        # If hash is shorter than input, cycle through values until we reach input_size
+        result_bytes = bytearray()
+        while len(result_bytes) < input_size:
+            result_bytes.extend(hash_bytes[:min(len(hash_bytes), input_size - len(result_bytes))])
+        return bytes(result_bytes)
+    else:
+        # If hash is longer than input, truncate to input_size
+        return bytes(hash_bytes[:input_size])
 
 if __name__ == "__main__":
-    print("===== Quantum Hash Generator (Expectation-based) =====")
+    print("===== Quantum Hash Generator (Output Size Matches Input) =====")
     
-    # Example input (array of bytes)
-    input_data = bytearray([i % 256 for i in range(32)]) 
-
-
-
-    try:
-        result = quantum_hash(input_data)
-        print(f"\nQuantum Hash (hex): {result.hex()}")
-        print(f"Raw Bytes: {result}")
-    except Exception as e:
-        print(f"\nError: {e}")
+    # Test with different input sizes
+    test_inputs = [
+        bytearray([i % 256 for i in range(16)]),  # 16 bytes
+        bytearray([i % 256 for i in range(32)]),  # 32 bytes
+        bytearray([i % 256 for i in range(64)])   # 64 bytes
+    ]
+    
+    for i, input_data in enumerate(test_inputs):
+        try:
+            result = quantum_hash(input_data)
+            print(f"\nTest {i+1} - Input size: {len(input_data)} bytes")
+            print(f"Quantum Hash (hex): {result.hex()}")
+            print(f"Hash size: {len(result)} bytes")
+            print(f"Input and output sizes match: {len(input_data) == len(result)}")
+        except Exception as e:
+            print(f"\nError: {e}")
