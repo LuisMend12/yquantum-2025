@@ -1,8 +1,8 @@
+#This is the program we used to plot our data
+
 import random
 import matplotlib.pyplot as plt
 from collections import defaultdict
-from qiskit import QuantumCircuit
-from qiskit.quantum_info import Statevector, Pauli
 
 from main import qhash_quantum_walk
 
