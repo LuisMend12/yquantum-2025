@@ -1,29 +1,91 @@
-from qiskit import QuantumCircuit
-from qiskit.quantum_info import Pauli, Statevector
 import numpy as np
+from qiskit import QuantumCircuit, QuantumRegister, transpile
+from qiskit.providers.basic_provider import BasicSimulator
 
-def simple_quantum_hash(input_bytes: bytes):
-    num_qubits = len(input_bytes)
-    qc = QuantumCircuit(num_qubits)
-    for i in range(num_qubits):
-        angle = (input_bytes[i] / 255) * np.pi  # scale to [0, π]
-        qc.ry(angle, i)
+def quantum_hash_iterative_v3(input_bytes):
+    """
+    A purely quantum hash function processing input in 20-bit chunks.
+    Input: an array of 2^N bytes (N >= 5).
+    Output: 32 bytes (256 bits).
+    Uses 20 qubits.
+    """
+    input_bits = np.unpackbits(np.frombuffer(input_bytes, dtype=np.uint8))
+    padding_needed = 20 - (len(input_bits) % 20) if len(input_bits) % 20 != 0 else 0
+    input_bits = np.pad(input_bits, (0, padding_needed), 'constant')
 
-    sv = Statevector.from_instruction(qc)
-    exp_vals = [sv.expectation_value(Pauli("Z"), [i]).real for i in range(num_qubits)]
+    n_qubits = 20
+    qr = QuantumRegister(n_qubits, 'q')
+    qc = QuantumCircuit(qr)
 
-    # Map each expectation value from [-1, 1] to an 8-bit integer in [0, 255].
-    output_bytes = bytearray([min(int(((val + 1) / 2) * 256), 255) for val in exp_vals])
+    simulator = BasicSimulator()
+    current_state = None # To carry state over
+
+    num_steps = 64 # Number of steps in the quantum operation per block
+
+    for i in range(0, len(input_bits), 20):
+        chunk = input_bits[i:i+20]
+
+        if current_state is not None:
+            qc.initialize(current_state, qr)
+        else:
+            qc.reset(qr)
+
+        # Encode input bits as rotations (Ry by pi if bit is 1)
+        for j in range(20):
+            if chunk[j]:
+                qc.ry(np.pi, qr[j])
+
+        # Perform a quantum operation
+        for _ in range(num_steps):
+            for j in range(n_qubits):
+                qc.h(qr[j])
+            for j in range(0, n_qubits - 1, 2):
+                qc.cx(qr[j], qr[j+1])
+            for j in range(1, n_qubits - 1, 2):
+                qc.cx(qr[j], qr[j+1])
+            if n_qubits > 1:
+                qc.cx(qr[n_qubits - 1], qr[0]) # Wrap around
+
+        # Get the statevector to carry over
+        compiled_circuit = transpile(qc, simulator)
+        job = simulator.run(compiled_circuit).result()
+        current_state = job.get_statevector(qc).data
+
+        qc.data.clear() # Clear quantum circuit for next chunk
+
+    # After processing all blocks, get expectation values
+    expectation_values = []
+    for i in range(n_qubits):
+        exp_x = job.get_expectation_value(qc, [["x", i]])
+        exp_y = job.get_expectation_value(qc, [["y", i]])
+        exp_z = job.get_expectation_value(qc, [["z", i]])
+        expectation_values.extend([exp_x, exp_y, exp_z])
+
+    # Quantize to 5 bits and concatenate
+    output_bits = []
+    for value in expectation_values:
+        quantized_value = round((value + 1) * 31 / 2)
+        binary = format(int(quantized_value), '05b')
+        output_bits.extend([int(b) for b in binary])
+
+    # Take the first 256 bits and convert to bytes
+    output_bytes = bytearray()
+    for i in range(0, 256, 8):
+        byte_value = 0
+        for j in range(8):
+            if i + j < len(output_bits):
+                if output_bits[i + j] == 1:
+                    byte_value |= (1 << (7 - j))
+        output_bytes.append(byte_value)
 
     return bytes(output_bytes)
 
 if __name__ == '__main__':
     input_data_n5 = b'This is a test input of 32 bytes for N=5'
-    output_hash_n5 = simple_quantum_hash(input_data_n5)
+    output_hash_n5 = quantum_hash_iterative_v3(input_data_n5)
     print(f"Input (N=5, {len(input_data_n5)} bytes): {input_data_n5}")
     print(f"Output (N=5, {len(output_hash_n5)} bytes): {output_hash_n5.hex()}")
 
     input_data_n6 = b'This is a longer test input of 64 bytes for N=6' * 2
-    output_hash_n6 = simple_quantum_hash(input_data_n6)
-    print(f"Input (N=6, {len(input_data_n6)} bytes): {input_data_n6}")
-    print(f"Output (N=6, {len(output_hash_n6)} bytes): {output_hash_n6.hex()}")
+    output_hash_n6 = quantum_hash_iterative_v3(input_data_n6)
+    print(f"Input (N=6, {len(input_data_n6)} bytes): {output_hash_n6.hex()}")
