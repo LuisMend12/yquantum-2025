@@ -3,12 +3,9 @@ from qiskit import QuantumCircuit
 from qiskit.circuit import Parameter
 from qiskit.quantum_info import Statevector
 from qiskit.quantum_info.operators import Pauli
-from qiskit_aer import Aer
-import struct
 import hashlib
-import numpy as np
 
-NUM_QUBITS = 16  # Increased number of qubits
+NUM_QUBITS = 4  # Increased number of qubits
 NUM_LAYERS = 8
 CHUNK_SIZE = 32  # Standard chunk size for processing
 
@@ -184,17 +181,16 @@ def qhash_variable_output_v8(x: bytes) -> bytes:
 if __name__ == "__main__":
     print("===== Quantum Hash Generator (Variable Output Size - v8) =====")
 
-    test_inputs = [
-        b"",
-        b"a",
-        b"abc",
-        b"message digest",
-        b"abcdefghijklmnopqrstuvwxyz",
-        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789",
-        b"12345678901234567890123456789012345678901234567890123456789012345678901234567890",
-        bytes([0] * 100),
-        bytes([255] * 100),
-        bytes([i % 256 for i in range(100)]),
+    test_inputs = test_inputs = [
+            bytearray([1, 2, 3, 4, 5, 8]),
+            bytearray([5, 6, 7, 8, 9, 10]),
+            bytearray([10, 20, 30, 40, 50, 60]),
+            bytearray([255, 255, 255, 255, 255, 255]),
+            bytearray([1, 1, 1, 1, 1, 1, 1, 1]),
+            bytearray([255] * 16),
+            bytearray([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]),
+            bytearray(b'\x01\x02\x03\x04\x05\x08'), #[1, 2, 3, 4, 5, 8]
+            bytearray(b'\x00\x02\x03\x04\x05\x08') #[0, 2, 3, 4, 5, 8]
     ]
 
     print("\n--- Testing qhash_variable_output_v8 ---")
