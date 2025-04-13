@@ -68,8 +68,8 @@ if __name__ == "__main__":
             bytearray([1, 1, 1, 1, 1, 1, 1, 1]),
             bytearray([255] * 16),
             bytearray([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]),
-            bytearray(b'\x01\x02\x03\x04\x05\x08'),
-            bytearray(b'\x00\x02\x03\x04\x05\x08')
+            bytearray(b'\x01\x02\x03\x04\x05\x08'), #[1, 2, 3, 4, 5, 8]
+            bytearray(b'\x00\x02\x03\x04\x05\x08') #[0, 2, 3, 4, 5, 8]
     ]
 
     print("\n--- Testing Optimized qhash_quantum_walk ---")
