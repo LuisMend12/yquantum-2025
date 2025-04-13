@@ -3,17 +3,29 @@ from main import qhash_quantum_walk  # Replace with actual module name if needed
 
 class TestQuantumHashFunction(unittest.TestCase):
     
-    def test_output_type_and_size(self):
-        """Check that the output is of type bytes and matches input size."""
-        input_data = bytearray([1, 2, 3, 4, 5, 8])
-        output = qhash_quantum_walk(input_data)
-        # Check that output is of type bytes
-        self.assertIsInstance(output, bytes)
-        # Check that the output size is the same as input size
-        self.assertEqual(len(output), len(input_data))
+    def test_output_and_size_consistency(self):
+    
+        inputs = [
+            bytearray([1, 2, 3, 4, 5, 8]),
+            bytearray([10, 20, 30, 40, 50, 60]),
+            bytearray([255, 255, 255, 255, 255, 255]),
+            bytearray([0, 0, 0, 0, 0, 0]),
+            bytearray([1, 1, 1, 1, 1, 1, 1, 1]),
+            bytearray([255] * 16),  # Larger inputs for coverage
+            bytearray([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]),
+        ]
+        
+        for input_data in inputs:
+            output = qhash_quantum_walk(input_data)
+            
+            # Check that output is of type bytes
+            self.assertIsInstance(output, bytes)
+            
+            # Check that the output size is the same as the input size
+            self.assertEqual(len(output), len(input_data), f"Output size mismatch for input: {input_data}")
 
-    def test_input_output_size_consistency(self):
-        """Ensure the size of the input is the same as the size of the output hash."""
+    def test_hash_determinism(self):
+        """Ensure that the same input always produces the same hash."""
         inputs = [
             bytearray([1, 2, 3, 4, 5, 8]),
             bytearray([10, 20, 30, 40, 50, 60]),
@@ -23,17 +35,10 @@ class TestQuantumHashFunction(unittest.TestCase):
         ]
         
         for input_data in inputs:
-            output = qhash_quantum_walk(input_data)
-            # Check that the size of the output is the same as the input size
-            self.assertEqual(len(input_data), len(output), f"Input size and output size do not match for input: {input_data}")
-
-    def test_hash_determinism(self):
-        """Ensure that the same input always produces the same hash."""
-        input_data = bytearray([1, 2, 3, 4, 5, 8])
-        hash1 = qhash_quantum_walk(input_data)
-        hash2 = qhash_quantum_walk(input_data)
-        # Check that the hash for the same input is always the same
-        self.assertEqual(hash1, hash2)
+            hash1 = qhash_quantum_walk(input_data)
+            hash2 = qhash_quantum_walk(input_data)
+            # Check that the hash for the same input is always the same
+            self.assertEqual(hash1, hash2, f"Hash mismatch for input: {input_data}")
 
     def test_avalanche_effect(self):
         """Test that small changes in input cause big changes in output (avalanche effect)."""
@@ -42,6 +47,9 @@ class TestQuantumHashFunction(unittest.TestCase):
             bytearray([5, 6, 7, 8, 9, 10]),
             bytearray([10, 20, 30, 40, 50, 60]),
             bytearray([255, 255, 255, 255, 255, 255]),
+            bytearray([1, 1, 1, 1, 1, 1, 1, 1]),
+            bytearray([255] * 16),
+            bytearray([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]),
         ]
         
         for input_data in inputs:
@@ -67,7 +75,9 @@ class TestQuantumHashFunction(unittest.TestCase):
             bytearray([5, 6, 7, 8, 9, 10]),
             bytearray([10, 20, 30, 40, 50, 60]),
             bytearray([255, 255, 255, 255, 255, 255]),
-            bytearray([0, 0, 0, 0, 0, 0])
+            bytearray([0, 0, 0, 0, 0, 0]),
+            bytearray([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]),
+            bytearray([255] * 32),
         ]
         
         # Compare all pairs of inputs to ensure no collisions

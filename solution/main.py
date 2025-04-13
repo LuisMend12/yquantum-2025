@@ -2,75 +2,63 @@ import math
 from qiskit import QuantumCircuit
 from qiskit.quantum_info import Statevector, Pauli
 
-# Constants to define the number of qubits and steps for the quantum walk
-NUM_POSITION_QUBITS = 4  # Number of position qubits for 16 possible positions
-TOTAL_QUBITS = NUM_POSITION_QUBITS + 1  # Total qubits, including the coin qubit
 
-# Preprocess input data to match the expected size of the hash output
+NUM_POSITION_QUBITS = 4  # for 16 positions
+NUM_WALK_STEPS = 6
+TOTAL_QUBITS = NUM_POSITION_QUBITS + 1  # +1 coin qubit
+
+
 def preprocess_input(data: bytearray, size: int = 32) -> bytearray:
-    """
-    Ensures the input data is of the required size.
-    If too long, reduce by XORing bytes. If too short, pad with zeros.
-    """
     if len(data) > size:
         reduced = bytearray(size)
         for i in range(len(data)):
             reduced[i % size] ^= data[i]
         return reduced
-    return data.ljust(size, b'\x00')  # Pad with zeros if data is shorter than size
+    elif len(data) < size:
+        return data + bytearray([0] * (size - len(data)))
+    return data
 
-# Main quantum walk-based hash function
+
 def qhash_quantum_walk(input_data: bytearray) -> bytes:
-    """
-    Performs a quantum walk to generate a hash from the input data.
-    Initializes a quantum circuit, simulates the quantum walk,
-    and collects the expectation values to form the final hash.
-    """
     original_size = len(input_data)
     data = preprocess_input(input_data)
 
-    NUM_WALK_STEPS = len(data) * 2  # Double the walk steps for better avalanche effect
-
-    # Initialize quantum circuit with total qubits (coin + position)
     qc = QuantumCircuit(TOTAL_QUBITS)
-    coin = 0  # Coin qubit (used for flipping)
-    pos_qubits = list(range(1, TOTAL_QUBITS))  # Position qubits (1 to TOTAL_QUBITS-1)
+    coin = 0
+    pos_qubits = list(range(1, TOTAL_QUBITS))
 
-    # Start the walker at the center position
-    qc.x(pos_qubits[len(pos_qubits) // 2])
+    # Start walker roughly centered
+    center = len(pos_qubits) // 2
+    qc.x(pos_qubits[center])
 
-    # Quantum walk steps
     for step in range(NUM_WALK_STEPS):
-        byte_val = data[step % len(data)]  # Loop over the data for longer walks
-        theta = (byte_val / 255.0) * 2 * math.pi  # Map byte value to [0, 2π] for RY rotation
-        qc.ry(theta, coin)  # Apply RY rotation based on byte value
+        byte_val = data[step % len(data)]
+        theta = (byte_val % 256) * math.pi / 128  # in [0, 2π]
+        qc.ry(theta, coin)
 
-        # Apply controlled-X gates to entangle position and coin
-        for i in reversed(pos_qubits):
-            qc.cx(coin, i)
+        for i in reversed(range(len(pos_qubits))):
+            qc.cx(coin, pos_qubits[i])
 
-    # Simulate the quantum circuit to obtain the state vector
     sv = Statevector.from_instruction(qc)
 
-    # Collect expectation values from position qubits for Z and X bases
+    # Collect expectations
     hash_bytes = bytearray()
     for i in pos_qubits:
-        # Expectation values for Pauli operators
         z_op = Pauli("I" * i + "Z" + "I" * (TOTAL_QUBITS - i - 1))
         x_op = Pauli("I" * i + "X" + "I" * (TOTAL_QUBITS - i - 1))
 
-        # Calculate expectation values
         z_val = sv.expectation_value(z_op).real
         x_val = sv.expectation_value(x_op).real
 
-        # Convert to byte representation
         hash_bytes.append(int((z_val + 1) / 2 * 255))
         hash_bytes.append(int((x_val + 1) / 2 * 255))
 
-    # Trim hash to match the original size
-    return bytes(hash_bytes[:original_size])
+    while len(hash_bytes) < original_size:
+        hash_bytes.extend(hash_bytes)
 
+    return bytes(hash_bytes[:original_size])
 # Testing the optimized function
+
 if __name__ == "__main__":
     test_inputs = [
         bytearray([1, 2, 3, 4, 5, 8, 10, 12]),  # Example input 1
