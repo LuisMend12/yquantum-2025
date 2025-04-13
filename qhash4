@@ -1,0 +1,226 @@
+import math
+from qiskit import QuantumCircuit
+from qiskit.circuit import Parameter
+from qiskit.quantum_info import Statevector
+from qiskit.quantum_info.operators import Pauli
+from qiskit_aer import Aer
+import struct
+import hashlib
+import numpy as np
+
+NUM_QUBITS = 16  # Increased number of qubits
+NUM_LAYERS = 8
+CHUNK_SIZE = 32  # Standard chunk size for processing
+
+# build the parameterized quantum circuit.
+qc_param = QuantumCircuit(NUM_QUBITS)
+params = []
+for l in range(NUM_LAYERS):
+    # add parameterized RY rotation gates
+    for i in range(NUM_QUBITS):
+        theta = Parameter(f"theta_ry_{l}_{i}")
+        params.append(theta)
+        qc_param.ry(theta, i)
+    # add parameterized RZ rotation gates
+    for i in range(NUM_QUBITS):
+        theta = Parameter(f"theta_rz_{l}_{i}")
+        params.append(theta)
+        qc_param.rz(theta, i)
+    # add parameterized RX rotation gates
+    for i in range(NUM_QUBITS):
+        theta = Parameter(f"theta_rx_{l}_{i}")
+        params.append(theta)
+        qc_param.rx(theta, i)
+    # add CNOT entangling gates (Ring topology)
+    for i in range(NUM_QUBITS):
+        qc_param.cx(i, (i + 1) % NUM_QUBITS)
+    # add input-dependent CZ gates
+    global processed_input  # Expecting this to be set in qhash function
+    if 'processed_input' in globals():
+        for i in range(NUM_QUBITS):
+            input_bit_index = (l * NUM_QUBITS + i) % (len(processed_input) * 8)
+            byte_index = input_bit_index // 8
+            bit_in_byte = input_bit_index % 8
+            if byte_index < len(processed_input) and ((processed_input[byte_index] >> bit_in_byte) & 1):
+                qc_param.cz(i, (i + 1) % NUM_QUBITS)
+
+num_params = len(params)
+
+def preprocess_input(data: bytes) -> bytes:
+    """Preprocess input to ensure consistent chunk size and add length encoding."""
+    target_size = CHUNK_SIZE
+    input_size = len(data)
+    if input_size == target_size:
+        return data
+    elif input_size < target_size:
+        padding_size = target_size - input_size
+        padding = bytearray([0] * (padding_size - 2))
+        padding.extend(input_size.to_bytes(2, byteorder='big'))  # Encode original length
+        return data + bytes(padding)
+    else:  # input_size > target_size
+        # Use SHA-256 to reduce larger inputs to target size
+        return hashlib.sha256(data).digest()
+
+def quantum_process_chunk(chunk: bytes, prev_hash: bytes = None) -> bytes:
+    """Process a single chunk using quantum circuit with optional previous hash mixing."""
+    global processed_input
+    
+    # Mix previous hash with current chunk if provided
+    if prev_hash is not None:
+        mixed_chunk = bytearray()
+        min_len = min(len(chunk), len(prev_hash))
+        for i in range(min_len):
+            mixed_chunk.append(chunk[i] ^ prev_hash[i])
+        if len(chunk) > min_len:
+            mixed_chunk.extend(chunk[min_len:])
+        elif len(prev_hash) > min_len:
+            mixed_chunk.extend(prev_hash[min_len:])
+        processed_input = bytes(mixed_chunk)
+    else:
+        processed_input = chunk
+
+    # create a dictionary mapping each parameter to its value
+    param_values = {}
+    param_index = 0
+    
+    # Use a more sophisticated parameter generation that combines multiple input bytes
+    for l in range(NUM_LAYERS):
+        for i in range(NUM_QUBITS):
+            # RY parameter - use multiple bytes to determine rotation
+            byte1 = processed_input[(param_index + i) % len(processed_input)]
+            byte2 = processed_input[(param_index + i + NUM_QUBITS) % len(processed_input)]
+            value = ((byte1 << 8) + byte2) * math.pi / 65536
+            param_values[params[param_index]] = value
+            param_index += 1
+        
+        for i in range(NUM_QUBITS):
+            # RZ parameter - different byte combination
+            byte1 = processed_input[(param_index + i * 2) % len(processed_input)]
+            byte2 = processed_input[(param_index + i * 2 + 1) % len(processed_input)]
+            value = ((byte1 << 4) + byte2) * math.pi / 4096
+            param_values[params[param_index]] = value
+            param_index += 1
+        
+        for i in range(NUM_QUBITS):
+            # RX parameter - yet another combination
+            byte1 = processed_input[(param_index + i * 3) % len(processed_input)]
+            byte2 = processed_input[(param_index + i * 3 + 1) % len(processed_input)]
+            byte3 = processed_input[(param_index + i * 3 + 2) % len(processed_input)]
+            value = ((byte1 + byte2 + byte3) % 256) * math.pi / 256
+            param_values[params[param_index]] = value
+            param_index += 1
+
+    # bind the parameters to the circuit
+    bound_qc = qc_param.assign_parameters(param_values)
+
+    # prepare the state vector from the bound circuit
+    sv = Statevector.from_instruction(bound_qc)
+    
+    # calculate the qubit expectations on multiple bases
+    expectation_bytes = bytearray()
+    for i in range(NUM_QUBITS):
+        # Z basis measurement
+        z_op = Pauli("I" * i + "Z" + "I" * (NUM_QUBITS - i - 1))
+        z_val = sv.expectation_value(z_op).real
+        expectation_bytes.append(int((z_val + 1) / 2 * 255))
+        
+        # X basis measurement
+        x_op = Pauli("I" * i + "X" + "I" * (NUM_QUBITS - i - 1))
+        x_val = sv.expectation_value(x_op).real
+        expectation_bytes.append(int((x_val + 1) / 2 * 255))
+        
+        # Y basis measurement (added for more quantum randomness)
+        y_op = Pauli("I" * i + "Y" + "I" * (NUM_QUBITS - i - 1))
+        y_val = sv.expectation_value(y_op).real
+        expectation_bytes.append(int((y_val + 1) / 2 * 255))
+
+    return bytes(expectation_bytes)
+
+def qhash_variable_output_v8(x: bytes) -> bytes:
+    """Quantum hash function with improved chunk processing and symmetry breaking."""
+    original_input_size = len(x)
+    
+    # Process input in chunks with quantum-enhanced combination
+    if len(x) <= CHUNK_SIZE:
+        # Single chunk processing
+        hash_result = quantum_process_chunk(preprocess_input(x))
+    else:
+        # Multi-chunk processing with quantum feedback
+        chunks = [x[i:i+CHUNK_SIZE] for i in range(0, len(x), CHUNK_SIZE)]
+        current_hash = None
+        
+        for i, chunk in enumerate(chunks):
+            # Process chunk with feedback from previous hash
+            processed_chunk = preprocess_input(chunk)
+            
+            # For even chunks, process normally
+            # For odd chunks, reverse the chunk to break symmetry
+            if i % 2 == 1:
+                processed_chunk = processed_chunk[::-1]
+            
+            current_hash = quantum_process_chunk(processed_chunk, current_hash)
+        
+        hash_result = current_hash
+    
+    # Final processing to match output size
+    output = bytearray()
+    if len(hash_result) >= original_input_size:
+        output = hash_result[:original_input_size]
+    else:
+        # Use a quantum-inspired expansion method
+        expanded = bytearray(hash_result)
+        while len(expanded) < original_input_size:
+            # Create feedback by XORing different parts of the current hash
+            feedback = bytearray()
+            for i in range(len(expanded)):
+                j = (i * 13) % len(expanded)  # Prime number for better mixing
+                feedback.append(expanded[i] ^ expanded[j])
+            expanded.extend(feedback)
+        output = expanded[:original_input_size]
+    
+    return bytes(output)
+
+# Test cases
+if __name__ == "__main__":
+    print("===== Quantum Hash Generator (Variable Output Size - v8) =====")
+
+    test_inputs = [
+        b"",
+        b"a",
+        b"abc",
+        b"message digest",
+        b"abcdefghijklmnopqrstuvwxyz",
+        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789",
+        b"12345678901234567890123456789012345678901234567890123456789012345678901234567890",
+        bytes([0] * 100),
+        bytes([255] * 100),
+        bytes([i % 256 for i in range(100)]),
+    ]
+
+    print("\n--- Testing qhash_variable_output_v8 ---")
+    for input_data in test_inputs:
+        print(f"\nInput: {input_data[:20]}... (size: {len(input_data)} bytes)")
+        try:
+            hash_result = qhash_variable_output_v8(input_data)
+            print(f"Hash (hex): {hash_result.hex()}")
+            print(f"Output size: {len(hash_result)} bytes (matches input)")
+
+            # Test symmetry breaking
+            if len(input_data) > 1:
+                reversed_input = input_data[::-1]
+                reversed_hash = qhash_variable_output_v8(reversed_input)
+                if hash_result == reversed_hash:
+                    print("Warning: Symmetric input produced identical output!")
+                else:
+                    print("Symmetric input test passed (different outputs)")
+
+            # Test avalanche effect
+            if len(input_data) > 0:
+                modified_input = bytearray(input_data)
+                modified_input[0] ^= 1  # Flip one bit
+                modified_hash = qhash_variable_output_v8(bytes(modified_input))
+                diff_bits = sum(bin(a ^ b).count('1') for a, b in zip(hash_result, modified_hash))
+                diff_percentage = diff_bits / (len(hash_result) * 8) * 100
+                print(f"Avalanche effect: {diff_percentage:.1f}% bits changed")
+        except Exception as e:
+            print(f"Error: {e}")
