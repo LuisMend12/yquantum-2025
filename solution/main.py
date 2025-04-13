@@ -4,7 +4,7 @@ from qiskit.quantum_info import Statevector, Pauli
 
 
 NUM_POSITION_QUBITS = 4  # for 16 positions
-NUM_WALK_STEPS = 64 #gotta check this
+NUM_WALK_STEPS = 32 #gotta check this
 TOTAL_QUBITS = NUM_POSITION_QUBITS + 1  # +1 coin qubit
 
 
