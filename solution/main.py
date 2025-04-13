@@ -61,8 +61,15 @@ def qhash_quantum_walk(input_data: bytearray) -> bytes:
 
 if __name__ == "__main__":
     test_inputs = [
-        bytearray([1, 2, 3, 4, 5, 8, 10, 12]),  # Example input 1
-        bytearray([1, 2, 3, 4, 5, 7]),  # Example input 2 (small change for avalanche effect)
+            bytearray([1, 2, 3, 4, 5, 8]),
+            bytearray([5, 6, 7, 8, 9, 10]),
+            bytearray([10, 20, 30, 40, 50, 60]),
+            bytearray([255, 255, 255, 255, 255, 255]),
+            bytearray([1, 1, 1, 1, 1, 1, 1, 1]),
+            bytearray([255] * 16),
+            bytearray([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]),
+            bytearray(b'\x01\x02\x03\x04\x05\x08'),
+            bytearray(b'\x00\x02\x03\x04\x05\x08')
     ]
 
     print("\n--- Testing Optimized qhash_quantum_walk ---")

@@ -55,8 +55,9 @@ class TestQuantumHashFunction(unittest.TestCase):
         for input_data in inputs:
             # Create a modified version of the input data
             modified_data = bytearray(input_data)
+            print(modified_data)
             modified_data[0] ^= 1  # Flip the first bit to create a small change
-
+            print(modified_data)
             # Generate hashes for both the original and modified data
             hash1 = qhash_quantum_walk(input_data)
             hash2 = qhash_quantum_walk(modified_data)
@@ -65,6 +66,8 @@ class TestQuantumHashFunction(unittest.TestCase):
             diff_count = sum(b1 != b2 for b1, b2 in zip(hash1, hash2))
             
             # Ensure more than half of the bytes have changed (avalanche effect)
+            print("First hash: ", hash1)
+            print("Second hash: ", hash2)
             self.assertGreater(diff_count, len(hash1) // 2, f"Avalanche effect failed for input: {input_data}")
 
     def test_collision_resistance(self):
