@@ -4,7 +4,6 @@ from qiskit.circuit import Parameter
 from qiskit.quantum_info import Statevector
 from qiskit.quantum_info.operators import Pauli
 from qiskit_aer import Aer
-import hashlib
 import numpy as np
 
 
@@ -20,7 +19,7 @@ def quantum_hash(input_data):
     # Step 1: Convert to binary if input is text
     if not all(bit in '01' for bit in input_data):
         print(f"Converting text to binary...")
-        binary_input = ''.join(format(ord(char), '08b') for char in input_data)
+        binary_input = ''.join(format(ord(char), '08b') for char in input_dataa)
         print(f"Binary representation: {binary_input}")
     else:
         binary_input = input_data
